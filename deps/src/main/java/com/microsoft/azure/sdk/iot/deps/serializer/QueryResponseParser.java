@@ -15,7 +15,7 @@ import java.util.List;
 
 public class QueryResponseParser
 {
-    private Gson gson;
+    private transient Gson gson;
     private JsonObject[] jsonItems = null;
 
     /**
