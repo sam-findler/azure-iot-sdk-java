@@ -7,6 +7,7 @@
 
 package tests.unit.com.microsoft.azure.sdk.iot.provisioning.device.internal.task;
 
+import com.microsoft.azure.sdk.iot.provisioning.device.internal.parser.ProvisioningErrorParser;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.parser.RegistrationOperationStatusParser;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.task.RequestData;
 import com.microsoft.azure.sdk.iot.provisioning.security.SecurityProvider;
@@ -348,5 +349,46 @@ public class StatusTaskTest
 
         //act
         statusTask.call();
+    }
+
+    //SRS_StatusTask_34_007: [ If the response data cannot be parsed into a RegistrationOperationStatusParser,
+    // this function shall parse it into a ProvisioningErrorParser and throw a ProvisioningDeviceClientException with the parsed message. ]
+    @Test (expected = ProvisioningDeviceClientException.class)
+    public void getRegistrationStatusFallsBackToErrorParserIfRegistrationOperationStatusParsingFails(@Mocked final ProvisioningErrorParser mockedProvisioningErrorParser) throws Exception
+    {
+        //arrange
+        StatusTask statusTask = Deencapsulation.newInstance(StatusTask.class, new Class[] {SecurityProvider.class,
+                        ProvisioningDeviceClientContract.class, String.class,
+                        Authorization.class},
+                mockedSecurityProvider, mockedProvisioningDeviceClientContract,
+                TEST_OPERATION_ID, mockedAuthorization);
+        new NonStrictExpectations()
+        {
+            {
+                mockedSecurityProvider.getRegistrationId();
+                result = TEST_REGISTRATION_ID;
+                Deencapsulation.invoke(mockedAuthorization, "getSslContext");
+                result = mockedSslContext;
+                Deencapsulation.invoke(mockedResponseData, "getResponseData");
+                result = "NonNullValue".getBytes();
+                Deencapsulation.invoke(mockedResponseData, "getContractState");
+                result = DPS_REGISTRATION_RECEIVED;
+                RegistrationOperationStatusParser.createFromJson(anyString);
+                result = new IllegalArgumentException("Some illegal argumentException");
+                ProvisioningErrorParser.createFromJson(anyString);
+                result = mockedProvisioningErrorParser;
+            }
+        };
+
+        //act
+        statusTask.call();
+        //assert
+        new Verifications()
+        {
+            {
+                mockedProvisioningErrorParser.getExceptionMessage();
+                times = 1;
+            }
+        };
     }
 }

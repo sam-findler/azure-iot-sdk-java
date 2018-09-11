@@ -8,12 +8,14 @@
 package tests.unit.com.microsoft.azure.sdk.iot.provisioning.device.internal.task;
 
 import com.microsoft.azure.sdk.iot.deps.util.Base64;
+import com.microsoft.azure.sdk.iot.provisioning.device.ProvisioningDeviceClient;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.ProvisioningDeviceClientConfig;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.contract.ProvisioningDeviceClientContract;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.contract.ResponseCallback;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.contract.UrlPathBuilder;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.exceptions.*;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.parser.DeviceRegistrationParser;
+import com.microsoft.azure.sdk.iot.provisioning.device.internal.parser.ProvisioningErrorParser;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.parser.RegistrationOperationStatusParser;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.parser.TpmRegistrationResultParser;
 import com.microsoft.azure.sdk.iot.provisioning.device.internal.task.Authorization;
@@ -1006,5 +1008,101 @@ public class RegisterTaskTest
         };
         //act
         registerTask.call();
+    }
+
+    //SRS_StatusTask_34_010: [ If the response data cannot be parsed into a RegistrationOperationStatusParser,
+    // this function shall parse it into a ProvisioningErrorParser and throw a ProvisioningDeviceClientException with the parsed message. ]
+    @Test (expected = ProvisioningDeviceClientException.class)
+    public void authenticateWithX509FallsBackToErrorParserIfRegistrationOperationStatusParsingFails(@Mocked final ProvisioningErrorParser mockedProvisioningErrorParser) throws Exception
+    {
+        //arrange
+        RegisterTask registerTask = Deencapsulation.newInstance(RegisterTask.class, mockedProvisioningDeviceClientConfig,
+                mockedDpsSecurityProviderX509, mockedProvisioningDeviceClientContract,
+                mockedAuthorization);
+
+        new NonStrictExpectations()
+        {
+            {
+                mockedDpsSecurityProviderX509.getRegistrationId();
+                result = TEST_REGISTRATION_ID;
+                mockedDeviceRegistrationParser.toJson();
+                result = "testJson";
+                mockedDpsSecurityProviderX509.getSSLContext();
+                result = mockedSslContext;
+                Deencapsulation.invoke(mockedResponseData, "getResponseData");
+                result = "NonNullValue".getBytes();
+                Deencapsulation.invoke(mockedResponseData, "getContractState");
+                result = DPS_REGISTRATION_RECEIVED;
+                RegistrationOperationStatusParser.createFromJson("NonNullValue");
+                result = new IllegalArgumentException("this is an error");
+                ProvisioningErrorParser.createFromJson("NonNullValue");
+                result = mockedProvisioningErrorParser;
+                mockedProvisioningErrorParser.getExceptionMessage();
+                result = "some new exception";
+            }
+        };
+        //act
+        registerTask.call();
+
+        //assert
+        new Verifications()
+        {
+            {
+                ProvisioningErrorParser.createFromJson("NonNullValue");
+                times = 1;
+
+                mockedProvisioningErrorParser.getExceptionMessage();
+                times = 1;
+            }
+        };
+    }
+
+    @Test (expected = ProvisioningDeviceClientException.class)
+    public void authenticateWithSasTokenFallsBackToErrorParserIfRegistrationOperationStatusParsingFails(@Mocked final ProvisioningErrorParser mockedProvisioningErrorParser) throws Exception
+    {
+        //arrange
+        RegisterTask registerTask = Deencapsulation.newInstance(RegisterTask.class, mockedProvisioningDeviceClientConfig,
+                mockedSecurityProviderTpm, mockedProvisioningDeviceClientContract,
+                mockedAuthorization);
+
+        new NonStrictExpectations()
+        {
+            {
+                mockedSecurityProviderTpm.getRegistrationId();
+                result = TEST_REGISTRATION_ID;
+                mockedSecurityProviderTpm.getEndorsementKey();
+                result = TEST_EK.getBytes();
+                mockedSecurityProviderTpm.getStorageRootKey();
+                result = TEST_SRK.getBytes();
+                mockedDeviceRegistrationParser.toJson();
+                result = "testJson";
+                mockedSecurityProviderTpm.getSSLContext();
+                result = mockedSslContext;
+                Deencapsulation.invoke(mockedResponseData, "getResponseData");
+                result = "NonNullValue".getBytes();
+                Deencapsulation.invoke(mockedResponseData, "getContractState");
+                result = DPS_REGISTRATION_RECEIVED;
+                RegistrationOperationStatusParser.createFromJson("NonNullValue");
+                result = new IllegalArgumentException("this is an error");
+                ProvisioningErrorParser.createFromJson("NonNullValue");
+                result = mockedProvisioningErrorParser;
+                mockedProvisioningErrorParser.getExceptionMessage();
+                result = "some new exception";
+            }
+        };
+        //act
+        registerTask.call();
+
+        //assert
+        new Verifications()
+        {
+            {
+                ProvisioningErrorParser.createFromJson("NonNullValue");
+                times = 1;
+
+                mockedProvisioningErrorParser.getExceptionMessage();
+                times = 1;
+            }
+        };
     }
 }
