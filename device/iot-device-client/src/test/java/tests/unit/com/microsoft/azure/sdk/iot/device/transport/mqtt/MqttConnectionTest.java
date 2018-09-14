@@ -33,7 +33,7 @@ public class MqttConnectionTest
     private static final String SERVER_URI = "test.host.name";
     private static final String CLIENT_ID = "test.iothub";
     private static final String USER_NAME = "test-deviceId";
-    private static final String PASSWORD = "test-devicekey?&test";
+    private static final String PASSWORD = "1234";
 
     @Mocked
     SSLContext mockIotHubSSLContext;
